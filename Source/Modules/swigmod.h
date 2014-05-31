@@ -263,6 +263,9 @@ public:
   /* Language instance is a singleton - get instance */
   static Language* instance();
 
+  /* Supports multiple output wrapper files */
+  int supports_multi_output() const;
+
 protected:
   /* Allow multiple-input typemaps */
   void allow_multiple_input(int val = 1);
@@ -337,6 +340,9 @@ protected:
 
   /* Director language module */
   int director_language;
+
+  /* Supports multiple output wrapper files */
+  int multi_output;
 
 private:
   Hash *symtabs; /* symbol tables */

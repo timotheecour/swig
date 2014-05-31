@@ -3706,3 +3706,7 @@ Language *Language::instance() {
 Hash *Language::getClassHash() const {
   return classhash;
 }
+
+int Language::supports_multi_output() const {
+  return multi_output;
+}

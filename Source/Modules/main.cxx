@@ -119,13 +119,20 @@ static const char *usage2 = (const char *) "\
      -noexcept       - Do not wrap exception specifiers\n\
      -nofastdispatch - Disable fast dispatch mode (default)\n\
      -nopreprocess   - Skip the preprocessor step\n\
-";
-
-static const char *usage3 = (const char *) "\
      -notemplatereduce - Disable reduction of the typedefs in templates\n\
      -O              - Enable the optimization options: \n\
                         -fastdispatch -fvirtual \n\
+";
+
+static const char *usage3_single_output = (const char *) "\
      -o <outfile>    - Set name of the output file to <outfile>\n\
+";
+
+static const char *usage3_multi_output = (const char *) "\
+     -o <outlist>    - Set names of output files to <outlist>, a comma-separated list\n\
+";
+
+static const char *usage4 = (const char *) "\
      -oh <headfile>  - Set name of the output header file to <headfile>\n\
      -outcurrentdir  - Set default output dir to current dir instead of input file's path\n\
      -outdir <dir>   - Set language specific files output directory to <dir>\n\
@@ -170,8 +177,8 @@ static int help = 0;
 static int checkout = 0;
 static int cpp_only = 0;
 static int no_cpp = 0;
-static String *outfile_name = 0;
-static String *outfile_name_h = 0;
+static List *outfile_list = 0;
+static String *outfile_h = 0;
 static int tm_debug = 0;
 static int dump_symtabs = 0;
 static int dump_symbols = 0;
@@ -585,17 +592,30 @@ void SWIG_getoptions(int argc, char *argv[]) {
       } else if (strcmp(argv[i], "-o") == 0) {
 	Swig_mark_arg(i);
 	if (argv[i + 1]) {
-	  outfile_name = NewString(argv[i + 1]);
-          Swig_filename_correct(outfile_name);
-	  if (!outfile_name_h || !dependencies_file) {
-	    char *ext = strrchr(Char(outfile_name), '.');
-	    String *basename = ext ? NewStringWithSize(Char(outfile_name), Char(ext) - Char(outfile_name)) : NewString(outfile_name);
+	  outfile_list = NewList();
+	  char *file = strtok(argv[i + 1], ",");
+	  while (file) {
+	    String* outfile = NewString(file);
+	    Swig_filename_correct(outfile);
+	    Append(outfile_list, outfile);
+	    file = strtok(NULL, ",");
+	  }
+	  if (Len(outfile_list) > 0) {
+	    if (lang->supports_multi_output()) {
+	      Preprocessor_define((DOH *) "SWIG_MULTIOUTPUT 1", 0);
+	    } else {
+	      Printf(stderr, "SWIG does not support multiple output wrapper files for this language\n");
+	      SWIG_exit(EXIT_FAILURE);
+	    }
+	  }
+	  if (!outfile_h || !dependencies_file) {
+	    String* outfile = Getitem(outfile_list, 0);
+	    String *basename = Swig_file_basename(outfile);
 	    if (!dependencies_file) {
 	      dependencies_file = NewStringf("%s.%s", basename, depends_extension);
 	    }
-	    if (!outfile_name_h) {
-	      Printf(basename, ".%s", hpp_extension);
-	      outfile_name_h = NewString(basename);
+	    if (!outfile_h) {
+	      outfile_h = NewStringf("%s.%s", basename, hpp_extension);
 	    }
 	    Delete(basename);
 	  }
@@ -607,8 +627,8 @@ void SWIG_getoptions(int argc, char *argv[]) {
       } else if (strcmp(argv[i], "-oh") == 0) {
 	Swig_mark_arg(i);
 	if (argv[i + 1]) {
-	  outfile_name_h = NewString(argv[i + 1]);
-          Swig_filename_correct(outfile_name_h);
+	  outfile_h = NewString(argv[i + 1]);
+          Swig_filename_correct(outfile_h);
 	  Swig_mark_arg(i + 1);
 	  i++;
 	} else {
@@ -849,7 +869,12 @@ void SWIG_getoptions(int argc, char *argv[]) {
       } else if (strcmp(argv[i], "-help") == 0) {
 	fputs(usage1, stdout);
 	fputs(usage2, stdout);
-	fputs(usage3, stdout);
+	if (lang->supports_multi_output()) {
+	  fputs(usage3_multi_output, stdout);
+	} else {
+	  fputs(usage3_single_output, stdout);
+	}
+	fputs(usage4, stdout);
 	Swig_mark_arg(i);
 	help = 1;
       }
@@ -997,8 +1022,8 @@ int SWIG_main(int argc, char *argv[], Language *l) {
   if (checkout) {
     DOH *s;
     String *outfile = input_file;
-    if (outfile_name)
-      outfile = outfile_name;
+    if (outfile_list)
+      outfile = Getitem(outfile_list, 0);
 
     if (Verbose)
       Printf(stdout, "Handling checkout...\n");
@@ -1028,6 +1053,22 @@ int SWIG_main(int argc, char *argv[], Language *l) {
     // Run the preprocessor
     if (Verbose)
       Printf(stdout, "Preprocessing...\n");
+
+    String *inputfile_filename = outcurrentdir ? Swig_file_filename(input_file): Copy(input_file);
+    String *basename = Swig_file_basename(inputfile_filename);
+
+    // Set default output file names
+    if (!outfile_list) {
+      outfile_list = NewList();
+      if (CPlusPlus || lang->cplus_runtime_mode()) {
+        Append(outfile_list, NewStringf("%s_wrap.%s", basename, cpp_extension));
+      } else {
+        Append(outfile_list, NewStringf("%s_wrap.c", basename));
+      }
+    }
+    if (!outfile_h) {
+      outfile_h = NewStringf("%s_wrap.%s", basename, hpp_extension);
+    }
 
     {
       int i;
@@ -1077,20 +1118,10 @@ int SWIG_main(int argc, char *argv[], Language *l) {
       }
       if (depend) {
 	if (!no_cpp) {
-	  String *outfile;
           File *f_dependencies_file = 0;
 
 	  String *inputfile_filename = outcurrentdir ? Swig_file_filename(input_file): Copy(input_file);
 	  String *basename = Swig_file_basename(inputfile_filename);
-	  if (!outfile_name) {
-	    if (CPlusPlus || lang->cplus_runtime_mode()) {
-	      outfile = NewStringf("%s_wrap.%s", basename, cpp_extension);
-	    } else {
-	      outfile = NewStringf("%s_wrap.c", basename);
-	    }
-	  } else {
-	    outfile = NewString(outfile_name);
-	  }
 	  if (dependencies_file && Len(dependencies_file) != 0) {
 	    f_dependencies_file = NewFile(dependencies_file, "w", SWIG_output_files());
 	    if (!f_dependencies_file) {
@@ -1107,9 +1138,12 @@ int SWIG_main(int argc, char *argv[], Language *l) {
 	  } else
 	    f_dependencies_file = stdout;
 	  if (dependencies_target) {
-	    Printf(f_dependencies_file, "%s: ", dependencies_target);
+	    Printf(f_dependencies_file, "%s : ", dependencies_target);
 	  } else {
-	    Printf(f_dependencies_file, "%s: ", outfile);
+            for ( Iterator of = First ( outfile_list ); of.key; of = Next ( of ) ) {
+              Printf(f_dependencies_file, "%s ", of.item);
+            }
+            Printf(f_dependencies_file, ": ");
 	  }
 	  List *files = Preprocessor_depend();
 	  List *phony_targets = NewList();
@@ -1260,21 +1294,13 @@ int SWIG_main(int argc, char *argv[], Language *l) {
 
 	String *infile_filename = outcurrentdir ? Swig_file_filename(infile): Copy(infile);
 	String *basename = Swig_file_basename(infile_filename);
-	if (!outfile_name) {
-	  if (CPlusPlus || lang->cplus_runtime_mode()) {
-	    Setattr(top, "outfile", NewStringf("%s_wrap.%s", basename, cpp_extension));
-	  } else {
-	    Setattr(top, "outfile", NewStringf("%s_wrap.c", basename));
-	  }
-	} else {
-	  Setattr(top, "outfile", outfile_name);
+        if (l->supports_multi_output()) {
+          Setattr(top, "outfile", outfile_list);
+        } else {
+          Setattr(top, "outfile", Getitem(outfile_list, 0));
 	}
-	if (!outfile_name_h) {
-	  Setattr(top, "outfile_h", NewStringf("%s_wrap.%s", basename, hpp_extension));
-	} else {
-	  Setattr(top, "outfile_h", outfile_name_h);
-	}
-	configure_outdir(Getattr(top, "outfile"));
+        Setattr(top, "outfile_h", outfile_h);
+	configure_outdir(Getitem(outfile_list, 0));
 	if (Swig_contract_mode_get()) {
 	  Swig_contracts(top);
 	}
@@ -1308,6 +1334,8 @@ int SWIG_main(int argc, char *argv[], Language *l) {
       Swig_print_xml(top, xmlout);
     }
     Delete(top);
+    Delete(inputfile_filename);
+    Delete(basename);
   }
   if (tm_debug)
     Swig_typemap_debug();
