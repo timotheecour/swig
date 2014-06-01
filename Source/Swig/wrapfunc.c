@@ -32,6 +32,7 @@ Wrapper *NewWrapper(void) {
   w->locals = NewStringEmpty();
   w->code = NewStringEmpty();
   w->def = NewStringEmpty();
+  w->decl = NewStringEmpty();
   return w;
 }
 
@@ -46,6 +47,7 @@ void DelWrapper(Wrapper *w) {
   Delete(w->locals);
   Delete(w->code);
   Delete(w->def);
+  Delete(w->decl);
   free(w);
 }
 
@@ -399,6 +401,16 @@ void Wrapper_print(Wrapper *w, File *f) {
     Wrapper_pretty_print(str, f);
 
   Delete(str);
+}
+
+/* -----------------------------------------------------------------------------
+ * Wrapper_print_decl()
+ *
+ * Print out the declaration of a wrapper function.
+ * ----------------------------------------------------------------------------- */
+
+void Wrapper_print_decl(Wrapper *w, File *f) {
+  Printf(f, "%s;\n", w->decl);
 }
 
 /* -----------------------------------------------------------------------------

@@ -13,6 +13,7 @@
 
 typedef struct Wrapper {
     Hash *localh;
+    String *decl;
     String *def;
     String *locals;
     String *code;
@@ -24,6 +25,7 @@ extern void     Wrapper_compact_print_mode_set(int flag);
 extern void     Wrapper_pretty_print(String *str, File *f);
 extern void     Wrapper_compact_print(String *str, File *f);
 extern void     Wrapper_print(Wrapper *w, File *f);
+extern void     Wrapper_print_decl(Wrapper *w, File *f);
 extern int      Wrapper_add_local(Wrapper *w, const_String_or_char_ptr name, const_String_or_char_ptr decl);
 extern int      Wrapper_add_localv(Wrapper *w, const_String_or_char_ptr name, ...);
 extern int      Wrapper_check_local(Wrapper *w, const_String_or_char_ptr name);
