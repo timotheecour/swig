@@ -1997,14 +1997,20 @@ List *SwigType_get_sorted_mangled_list() {
 
 
 /* -----------------------------------------------------------------------------
- * SwigType_type_table()
+ * SwigType_emit_type_table()
+ * SwigType_emit_type_table_decl()
  *
- * Generate the type-table for the type-checker.
+ * Generate the type-table for the type-checker. The second functions also
+ * returns declarations of the type-table variables.
  * ----------------------------------------------------------------------------- */
 
 void SwigType_emit_type_table(File *f_forward, File *f_table) {
+  SwigType_emit_type_table_decl(f_forward, f_table, 0, "static ");
+}
+
+void SwigType_emit_type_table_decl(File *f_forward, File *f_table, File *f_decl, const_String_or_char_ptr storage) {
   Iterator ki;
-  String *types, *table, *cast, *cast_init, *cast_temp;
+  String *types, *table, *cast, *cast_init, *cast_temp, *type_query_macros;
   Hash *imported_types;
   List *mangled_list;
   List *table_list = NewList();
@@ -2016,7 +2022,6 @@ void SwigType_emit_type_table(File *f_forward, File *f_table) {
   }
 
   Printf(f_table, "\n/* -------- TYPE CONVERSION AND EQUIVALENCE RULES (BEGIN) -------- */\n\n");
-
   SwigType_inherit_equiv(f_table);
 
    /*#define DEBUG 1*/
@@ -2046,8 +2051,14 @@ void SwigType_emit_type_table(File *f_forward, File *f_table) {
   cast_init = NewStringEmpty();
   imported_types = NewHash();
 
-  Printf(table, "static swig_type_info *swig_type_initial[] = {\n");
-  Printf(cast_init, "static swig_cast_info *swig_cast_initial[] = {\n");
+  if (f_decl) {
+    Printf(f_decl, "\n/* -------- TYPES TABLE DECLARATIONS (BEGIN) -------- */\n\n");
+    Printf(f_decl, "extern swig_type_info *swig_type_initial[];\n");
+    Printf(f_decl, "extern swig_cast_info *swig_cast_initial[];\n");
+  }
+
+  Printf(table, "%sswig_type_info *swig_type_initial[] = {", storage);
+  Printf(cast_init, "%sswig_cast_info *swig_cast_initial[] = {", storage);
 
   Printf(f_forward, "\n/* -------- TYPES TABLE (BEGIN) -------- */\n\n");
 
@@ -2067,9 +2078,14 @@ void SwigType_emit_type_table(File *f_forward, File *f_table) {
 
     cast_temp = NewStringEmpty();
 
-    Printv(types, "static swig_type_info _swigt_", ki.item, " = {", NIL);
+    if (f_decl) {
+      Printf(f_decl, "extern swig_type_info _swigt_%s;\n", ki.item);
+      Printf(f_decl, "extern swig_cast_info _swigc_%s[];\n", ki.item);
+    }
+
+    Printf(types, "%sswig_type_info _swigt_%s = {", storage, ki.item);
     Append(table_list, ki.item);
-    Printf(cast_temp, "static swig_cast_info _swigc_%s[] = {", ki.item);
+    Printf(cast_temp, "%sswig_cast_info _swigc_%s[] = {", storage, ki.item);
     i++;
 
     cd = SwigType_clientdata_collect(ki.item);
@@ -2134,10 +2150,16 @@ void SwigType_emit_type_table(File *f_forward, File *f_table) {
       Delete(ckey);
 
       if (!Getattr(r_mangled, ei.item) && !Getattr(imported_types, ei.item)) {
-	Printf(types, "static swig_type_info _swigt_%s = {\"%s\", 0, 0, 0, 0, 0};\n", ei.item, ei.item);
+	if (f_decl) {
+	  Printf(f_decl, "extern swig_type_info _swigt_%s;\n", ei.item);
+	}
+	Printf(types, "%sswig_type_info _swigt_%s = {\"%s\", 0, 0, 0, 0, 0};\n", storage, ei.item, ei.item);
 	Append(table_list, ei.item);
 
-	Printf(cast, "static swig_cast_info _swigc_%s[] = {{&_swigt_%s, 0, 0, 0},{0, 0, 0, 0}};\n", ei.item, ei.item);
+	if (f_decl) {
+	  Printf(f_decl, "extern swig_cast_info _swigc_%s[];\n", ei.item);
+	}
+	Printf(cast, "%sswig_cast_info _swigc_%s[] = {{&_swigt_%s, 0, 0, 0},{0, 0, 0, 0}};\n", storage, ei.item, ei.item);
 	i++;
 
 	Setattr(imported_types, ei.item, "1");
@@ -2153,7 +2175,9 @@ void SwigType_emit_type_table(File *f_forward, File *f_table) {
   SortList(table_list, SwigType_compare_mangled);
   i = 0;
   for (ki = First(table_list); ki.item; ki = Next(ki)) {
-    Printf(f_forward, "#define SWIGTYPE%s swig_types[%d]\n", ki.item, i++);
+    Printf(f_decl, "#define SWIGTYPE%s swig_types[%d]\n", ki.item, i);
+    Printf(f_forward, "#define SWIGTYPE%s swig_types[%d]\n", ki.item, i);
+    i++;
     Printf(table, "  &_swigt_%s,\n", ki.item);
     Printf(cast_init, "  _swigc_%s,\n", ki.item);
   }
@@ -2175,11 +2199,27 @@ void SwigType_emit_type_table(File *f_forward, File *f_table) {
   Printf(f_table, "%s\n", cast_init);
   Printf(f_table, "\n/* -------- TYPE CONVERSION AND EQUIVALENCE RULES (END) -------- */\n\n");
 
-  Printf(f_forward, "static swig_type_info *swig_types[%d];\n", i + 1);
-  Printf(f_forward, "static swig_module_info swig_module = {swig_types, %d, 0, 0, 0, 0};\n", i);
-  Printf(f_forward, "#define SWIG_TypeQuery(name) SWIG_TypeQueryModule(&swig_module, &swig_module, name)\n");
-  Printf(f_forward, "#define SWIG_MangledTypeQuery(name) SWIG_MangledTypeQueryModule(&swig_module, &swig_module, name)\n");
+  if (f_decl) {
+    Printf(f_decl, "extern swig_type_info *swig_types[%d];\n", i + 1);
+    Printf(f_decl, "extern swig_module_info swig_module;\n");
+  }
+  Printf(f_forward, "%sswig_type_info *swig_types[%d];\n", storage, i + 1);
+  Printf(f_forward, "%sswig_module_info swig_module = {swig_types, %d, 0, 0, 0, 0};\n", storage, i);
+
+  type_query_macros = NewStringEmpty();
+  Printf(type_query_macros, "#define SWIG_TypeQuery(name) SWIG_TypeQueryModule(&swig_module, &swig_module, name)\n");
+  Printf(type_query_macros, "#define SWIG_MangledTypeQuery(name) SWIG_MangledTypeQueryModule(&swig_module, &swig_module, name)\n");
+  if (f_decl) {
+    Printv(f_decl, type_query_macros, NIL);
+  }
+  Printv(f_forward, type_query_macros, NIL);
+  Delete(type_query_macros);
+
   Printf(f_forward, "\n/* -------- TYPES TABLE (END) -------- */\n\n");
+
+  if (f_decl) {
+    Printf(f_decl, "\n/* -------- TYPES TABLE DECLARATIONS (END) -------- */\n\n");
+  }
 
   Delete(types);
   Delete(table);

@@ -212,6 +212,7 @@ extern "C" {
   extern void SwigType_remember_mangleddata(String *mangled, const_String_or_char_ptr clientdata);
   extern void (*SwigType_remember_trace(void (*tf) (const SwigType *, String *, String *))) (const SwigType *, String *, String *);
   extern void SwigType_emit_type_table(File *f_headers, File *f_table);
+  extern void SwigType_emit_type_table_decl(File *f_forward, File *f_table, File *f_decl, const_String_or_char_ptr storage);
   extern int SwigType_type(const SwigType *t);
 
 /* --- Symbol table module --- */
