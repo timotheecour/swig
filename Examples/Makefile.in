@@ -420,13 +420,15 @@ OCTAVE_SO     = @OCTAVE_SO@
 
 OCTAVE_SCRIPT = $(SRCDIR)$(RUNME).m
 
+ICXXSRCSLIST  = $(shell echo $(ICXXSRCS) | sed 's/  */,/g')
+
 # ----------------------------------------------------------------
 # Build a C dynamically loadable module
 # Note: Octave requires C++ compiler when compiling C wrappers
 # ----------------------------------------------------------------
 
 octave: $(SRCDIR_SRCS)
-	$(SWIG) -octave $(SWIGOPT) -o $(ICXXSRCS) $(INTERFACEPATH)
+	$(SWIG) -octave $(SWIGOPT) -o $(ICXXSRCSLIST) $(INTERFACEPATH)
 	$(CXX) -g -c $(CCSHARED) $(CPPFLAGS) $(CXXFLAGS) $(ICXXSRCS) $(INCLUDES) $(OCTAVE_CXX)
 	$(CC) -g -c $(CCSHARED) $(CPPFLAGS) $(CFLAGS) $(SRCDIR_SRCS) $(SRCDIR_CSRCS) $(INCLUDES)
 	$(LDSHARED) $(CFLAGS) $(LDFLAGS) $(OBJS) $(ICXXOBJS) $(OCTAVE_DLNK) $(LIBS) -o $(LIBPREFIX)$(TARGET)$(OCTAVE_SO)
@@ -436,7 +438,7 @@ octave: $(SRCDIR_SRCS)
 # -----------------------------------------------------------------
 
 octave_cpp: $(SRCDIR_SRCS)
-	$(SWIG) -c++ -octave $(SWIGOPT) -o $(ICXXSRCS) $(INTERFACEPATH)
+	$(SWIG) -c++ -octave $(SWIGOPT) -o $(ICXXSRCSLIST) $(INTERFACEPATH)
 	$(CXX) -g -c $(CCSHARED) $(CPPFLAGS) $(CXXFLAGS) $(ICXXSRCS) $(SRCDIR_SRCS) $(SRCDIR_CXXSRCS) $(INCLUDES) $(OCTAVE_CXX)
 	$(CXXSHARED) -g $(CXXFLAGS) $(LDFLAGS) $(OBJS) $(ICXXOBJS) $(OCTAVE_DLNK) $(LIBS) $(CPP_DLLIBS) -o $(LIBPREFIX)$(TARGET)$(OCTAVE_SO)
 

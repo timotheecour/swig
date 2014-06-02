@@ -125,6 +125,7 @@ Examples/test-suite/tcl/*/
 Examples/test-suite/uffi/*/
 *_wrap.c
 *_wrap.cxx
+*_wrap?.cxx
 *-gypcopy.cxx
 
 # C# generated files

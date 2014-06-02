@@ -106,17 +106,21 @@
 #define octave_map Octave_map
 #endif
 
-////////// Declare/define SWIG interface function loadable by Octave //////////
+////////// Declare SWIG interface function loadable by Octave //////////
 
 #if !SWIG_OCTAVE_PREREQ(3,2,0)
-#define SWIG_DEFUN(cname, wname, doc)			DEFUNX_DLD(#cname, wname, FS ## cname, args, nargout, doc)
+#define SWIG_OCTAVE_INSTALL_DLD_FUN(cname, wname, doc)	DEFINE_FUNX_INSTALLER_FUN(#cname, wname, FS ## cname, doc)
 #else
-#define SWIG_DEFUN(cname, wname, doc)			DEFUNX_DLD(#cname, wname, G ## cname, args, nargout, doc)
+#define SWIG_OCTAVE_INSTALL_DLD_FUN(cname, wname, doc)	DEFINE_FUNX_INSTALLER_FUN(#cname, wname, G ## cname, doc)
 #endif
 
 ////////// Define visibility of Octave runtime functions //////////
 
+#ifdef SWIG_MULTIOUTPUT
+#define SWIGOCTRT
+#else
 #define SWIGOCTRT SWIGRUNTIME
+#endif
 #define SWIGOCTRTINLINE SWIGOCTRT SWIGINLINE
 
 ////////// Octave implementations of SWIG runtime functions //////////
@@ -228,7 +232,6 @@ struct SwigOctClass {
   swig_type_info** type;
   int director;
   SwigOctFuncPtr constructor;
-  const char* constructor_doc;
   SwigOctFuncPtr destructor;
   const SwigOctMember* members;
   const char** base_names;
@@ -316,7 +319,6 @@ public:
   static bool				dispatch_global_op(const std::string& symbol, const octave_value_list& args, octave_value& ret);
   static octave_value			dispatch_unary_op(const octave_base_value& x, const char* op_name);
   octave_base_value*			empty_clone() const;
-  const char*				help_text() const;
   void					incref();
   bool					is_defined() const;
   virtual bool				is_map() const;

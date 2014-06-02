@@ -21,9 +21,15 @@ public:
 
 /* This helper function calls an overloaded operator */
 %inline %{
+
+Vector addv(Vector &a, Vector &b);
+
+#ifndef SWIG_MULTIOUTPUT_NOTFIRST
 Vector addv(Vector &a, Vector &b) {
   return a+b;
 }
+#endif
+
 %}
 
 /* Wrapper around an array of vectors class */
