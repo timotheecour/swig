@@ -24,6 +24,13 @@
 #define SWIG_OCTAVE_PREREQ(major, minor, patch) \
   ( (OCTAVE_MAJOR_VERSION<<16) + (OCTAVE_MINOR_VERSION<<8) + OCTAVE_PATCH_VERSION >= ((major)<<16) + ((minor)<<8) + (patch) )
 
+// Macro for printing the Octave version as a string
+#define SWIG_OCTAVE_VERSION_STRINGIZE(x) #x
+#define SWIG_OCTAVE_VERSION_CONCAT(x,y,z) \
+  SWIG_OCTAVE_VERSION_STRINGIZE(x) "." SWIG_OCTAVE_VERSION_STRINGIZE(y) "." SWIG_OCTAVE_VERSION_STRINGIZE(z)
+#define SWIG_OCTAVE_VERSION \
+  SWIG_OCTAVE_VERSION_CONCAT(OCTAVE_MAJOR_VERSION, OCTAVE_MINOR_VERSION, OCTAVE_PATCH_VERSION)
+
 // Reconstruct Octave major, minor, and patch versions for releases prior to 3.8.1
 #if !defined(OCTAVE_MAJOR_VERSION)
 
