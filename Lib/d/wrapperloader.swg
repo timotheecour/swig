@@ -42,7 +42,7 @@ private {
       static import std.conv;
     }
     static import std.string;
-    static import std.c.string;
+    static import core.stdc.string;
   }
 
   version(D_Version2) {
@@ -66,7 +66,7 @@ private {
       version(D_Version2) {
         mixin("return std.conv.to!string(cstr);");
       } else {
-        return std.c.string.toString(cstr);
+        return core.stdc.string.toString(cstr);
       }
     }
   }
