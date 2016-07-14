@@ -115,7 +115,7 @@ private {
       import std.c.linux.linux;
     } else {
       extern(C) {
-        const RTLD_NOW = 2;
+        enum RTLD_NOW = 2;
 
         void *dlopen(CCPTR file, int mode);
         int dlclose(void* handle);
